@@ -1,6 +1,6 @@
-# React + Vite
+# Office Attendance Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A Progressive Web App (PWA) for tracking office attendance with quarterly goals, built with React and Vite.
 
 Currently, two official plugins are available:
 

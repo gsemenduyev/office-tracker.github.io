@@ -33,3 +33,42 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Handle push notifications
+self.addEventListener('push', (event) => {
+  console.log('Push received:', event);
+
+  let data = {};
+  if (event.data) {
+    data = event.data.json();
+  }
+
+  const options = {
+    body: data.notification?.body || 'Time to check your office attendance!',
+    icon: '/vite.svg',
+    badge: '/vite.svg',
+    vibrate: [200, 100, 200],
+    data: {
+      dateOfArrival: Date.now(),
+      primaryKey: 1
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(
+      data.notification?.title || 'Office Tracker Reminder',
+      options
+    )
+  );
+});
+
+// Handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+  console.log('Notification click received:', event);
+
+  event.notification.close();
+
+  event.waitUntil(
+    clients.openWindow('/')
+  );
+});
