@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/office-tracker.github.io/',
+  base: '/gsemen196/office-tracker.github.io/',
 })
