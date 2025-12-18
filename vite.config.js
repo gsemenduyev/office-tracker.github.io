@@ -5,4 +5,5 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/office-tracker/',
+  base: '/office-tracker.github.io/',
 })
