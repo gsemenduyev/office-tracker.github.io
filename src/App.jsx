@@ -176,7 +176,7 @@ export default function App() {
   }
   function goToday() {
     const today = new Date();
-i    setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
     setSelectedISO(toISO(today));
   }
 
@@ -241,17 +241,6 @@ i    setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
     } catch (error) {
       console.error('Failed to subscribe to notifications:', error);
       alert('Failed to subscribe to notifications. Please check the console for details.');
-    }
-  }
-
-  async function sendTestNotification() {
-    try {
-      const response = await fetch('/.netlify/functions/send-daily-reminder');
-      if (!response.ok) throw new Error('Function call failed');
-      alert('Notification function triggered! If you are subscribed, you should see it momentarily.');
-    } catch (error) {
-      console.error('Error sending test:', error);
-      alert('Failed to trigger notification. Note: This only works on the deployed site or via "netlify dev".');
     }
   }
 
@@ -348,7 +337,6 @@ i    setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
             <button className="notifications" onClick={subscribeToNotifications}>
               {isSubscribed ? 'Subscribed ✅' : 'Subscribe to Reminders'}
             </button>
-            <button className="notifications" onClick={sendTestNotification} style={{ marginLeft: '8px' }}>Test Send</button>
           </div>
         </div>
       </header>
