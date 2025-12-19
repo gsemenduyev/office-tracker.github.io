@@ -1,6 +1,7 @@
 
 import { useEffect, useMemo, useState } from "react";
-import { requestNotificationPermission } from './firebase.js';
+import { db } from './firebase.js';
+import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 
 /**
  * Office Attendance Tracker (React + Vite)
@@ -169,6 +170,74 @@ export default function App() {
     setSelectedISO(toISO(today));
   }
 
+  async function subscribeToNotifications() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('Web Push is not supported by this browser.');
+      return;
+    }
+
+    try {
+      const swRegistration = await navigator.serviceWorker.register('/sw.js');
+      console.log('Service Worker registered:', swRegistration);
+
+      const permission = await window.Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('Permission for notifications was denied.');
+        return;
+      }
+
+      let vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        console.error('VITE_VAPID_PUBLIC_KEY is not set. Cannot subscribe.');
+        alert('VAPID public key not found. Subscription failed.');
+        return;
+      }
+      console.log('Frontend VAPID Key prefix:', vapidPublicKey.substring(0, 10) + '...');
+      // Clean up key and convert to Uint8Array
+      vapidPublicKey = vapidPublicKey.replace(/^"|"$/g, '').trim();
+      const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+      
+      // Unsubscribe existing to ensure we use the latest VAPID key
+      const existingSub = await swRegistration.pushManager.getSubscription();
+      if (existingSub) {
+        await existingSub.unsubscribe();
+      }
+
+      const subscription = await swRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey,
+      });
+
+      console.log('User is subscribed:', subscription);
+
+      // Save to Firestore (if not exists)
+      const subsRef = collection(db, 'subscriptions');
+      const q = query(subsRef, where("endpoint", "==", subscription.endpoint));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        await addDoc(subsRef, subscription.toJSON());
+        console.log('Subscribed & saved to Firestore!');
+      }
+
+      alert('You have successfully subscribed to reminder notifications!');
+    } catch (error) {
+      console.error('Failed to subscribe to notifications:', error);
+      alert('Failed to subscribe to notifications. Please check the console for details.');
+    }
+  }
+
+  async function sendTestNotification() {
+    try {
+      const response = await fetch('/.netlify/functions/send-daily-reminder');
+      if (!response.ok) throw new Error('Function call failed');
+      alert('Notification function triggered! If you are subscribed, you should see it momentarily.');
+    } catch (error) {
+      console.error('Error sending test:', error);
+      alert('Failed to trigger notification. Note: This only works on the deployed site or via "netlify dev".');
+    }
+  }
+
   // UI helpers
   function tileStatus(date) {
     if (!date) return undefined;
@@ -259,6 +328,8 @@ export default function App() {
             In Office: <b>{inOfficeCount}</b>
             {"  "}
             <button className="export" onClick={exportQuarterCSV}>Export Quarter CSV</button>
+            <button className="notifications" onClick={subscribeToNotifications}>Subscribe to Reminders</button>
+            <button className="notifications" onClick={sendTestNotification} style={{ marginLeft: '8px' }}>Test Send</button>
           </div>
         </div>
       </header>
@@ -427,4 +498,15 @@ export default function App() {
       `}</style>
     </div>
    );
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
