@@ -3,7 +3,6 @@
   publish = "dist"
   functions = "netlify/functions"
 
-
 # Scheduled functions
 [functions."send-daily-reminder"]
   # Schedule is in UTC (0 16 * * * = 4:00 PM UTC)
