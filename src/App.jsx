@@ -90,11 +90,21 @@ export default function App() {
   const [state, setState] = useState(loadState());
   const [viewDate, setViewDate] = useState(new Date()); // month being viewed
   const [selectedISO, setSelectedISO] = useState(toISO(new Date()));
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const selectedDate = fromISO(selectedISO);
 
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  useEffect(() => {
+    // Check initial subscription status
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub));
+      });
+    }
+  }, []);
 
   const monthStart = startOfMonth(viewDate);
   const monthEnd = endOfMonth(viewDate);
@@ -166,13 +176,19 @@ export default function App() {
   }
   function goToday() {
     const today = new Date();
-    setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
+i    setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
     setSelectedISO(toISO(today));
   }
 
   async function subscribeToNotifications() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       alert('Web Push is not supported by this browser.');
+      return;
+    }
+
+    // iOS Check: The Notification API is often hidden unless added to Home Screen
+    if (!('Notification' in window)) {
+      alert('Notifications are not available. If you are on an iPhone, tap "Share" -> "Add to Home Screen", then open the app from there to subscribe.');
       return;
     }
 
@@ -209,6 +225,7 @@ export default function App() {
       });
 
       console.log('User is subscribed:', subscription);
+      setIsSubscribed(true);
 
       // Save to Firestore (if not exists)
       const subsRef = collection(db, 'subscriptions');
@@ -328,7 +345,9 @@ export default function App() {
             In Office: <b>{inOfficeCount}</b>
             {"  "}
             <button className="export" onClick={exportQuarterCSV}>Export Quarter CSV</button>
-            <button className="notifications" onClick={subscribeToNotifications}>Subscribe to Reminders</button>
+            <button className="notifications" onClick={subscribeToNotifications}>
+              {isSubscribed ? 'Subscribed ✅' : 'Subscribe to Reminders'}
+            </button>
             <button className="notifications" onClick={sendTestNotification} style={{ marginLeft: '8px' }}>Test Send</button>
           </div>
         </div>
