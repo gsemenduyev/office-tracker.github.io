@@ -23,7 +23,7 @@ const messaging = getMessaging(app);
 // Initialize Firestore
 const db = getFirestore(app);
 
-const VAPID_KEY = 'BLs0IikOkDRixQstgvaTVAPayWYLDMd26ACbkIlJYP8Lvh5xsMGgP-q8ri6bttyE3ID4m1suLIO4FHV4pBsuHQg';
+const VAPID_KEY = import.meta.env.VITE_VAPID_KEY;
 
 // Request notification permission and get token
 export const requestNotificationPermission = async () => {
