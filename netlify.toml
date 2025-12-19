@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+
+# Scheduled functions
+[functions."send-daily-reminder"]
+  # Schedule is in UTC (0 16 * * * = 4:00 PM UTC)
+  schedule = "0 16 * * *"
+
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

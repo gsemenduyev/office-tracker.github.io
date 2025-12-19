@@ -1,6 +1,28 @@
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
 const CACHE_NAME = 'office-tracker-cache-v1';
 const OFFLINE_URLS = ['/', '/index.html', '/manifest.webmanifest'];
+
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
+};
+
+// Initialize Firebase
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+
+// Initialize Firebase Cloud Messaging
+const messaging = firebase.messaging();
+
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -19,13 +41,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request)
-               .then((resp) => {
-          const copy = resp.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        .then((resp) => {
+          if (event.request.url.startsWith('http')) { // Only cache http/https requests
+            const copy = resp.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
           return resp;
         })
         .catch(() => cached);
@@ -34,33 +57,19 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Handle push notifications
-self.addEventListener('push', (event) => {
-  console.log('Push received:', event);
+// Handle background messages
+messaging.onBackgroundMessage((payload) => {
+    console.log('Received background message ', payload);
 
-  let data = {};
-  if (event.data) {
-    data = event.data.json();
-  }
+    const notificationTitle = payload.notification.title;
+    const notificationOptions = {
+        body: payload.notification.body,
+        icon: '/vite.svg'
+    };
 
-  const options = {
-    body: data.notification?.body || 'Time to check your office attendance!',
-    icon: '/vite.svg',
-    badge: '/vite.svg',
-    vibrate: [200, 100, 200],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1
-    }
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(
-      data.notification?.title || 'Office Tracker Reminder',
-      options
-    )
-  );
+    self.registration.showNotification(notificationTitle, notificationOptions);
 });
+
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {

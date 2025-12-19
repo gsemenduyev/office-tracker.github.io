@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useState } from "react";
+import { requestNotificationPermission } from './firebase.js';
 
 /**
  * Office Attendance Tracker (React + Vite)
@@ -241,21 +242,24 @@ export default function App() {
     <div className="container">
       <header className="topbar">
         <h1>Office Attendance Tracker</h1>
-        <div className="goal">
-          Quarter {currentQuarter} {currentYear} • Target:{" "}
-          <input
-            type="number"
-            min={1}
-            max={90}
-            value={state.targetPerQuarter}
-            onChange={(e) =>
-              setState((s) => ({ ...s, targetPerQuarter: Number(e.target.value) }))
-            }
-          />
-          {"  "}
-          In Office: <b>{inOfficeCount}</b>
-          {"  "}
-          <button className="export" onClick={exportQuarterCSV}>Export Quarter CSV</button>
+        <div className="actions">
+          
+          <div className="goal">
+            Quarter {currentQuarter} {currentYear} • Target:{" "}
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={state.targetPerQuarter}
+              onChange={(e) =>
+                setState((s) => ({ ...s, targetPerQuarter: Number(e.target.value) }))
+              }
+            />
+            {"  "}
+            In Office: <b>{inOfficeCount}</b>
+            {"  "}
+            <button className="export" onClick={exportQuarterCSV}>Export Quarter CSV</button>
+          </div>
         </div>
       </header>
 
@@ -378,6 +382,8 @@ export default function App() {
         body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
         .container { max-width: 980px; margin: 24px auto; padding: 16px; }
         .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+        .notifications { padding: 8px 12px; background: var(--card); color: var(--text); border: 1px solid var(--accent); border-radius: 6px; cursor: pointer; }
         h1 { margin: 0; font-size: 1.5rem; }
         .goal { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .goal input { width: 72px; padding: 6px 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }

@@ -22,7 +22,7 @@ if ('serviceWorker' in navigator) {
         requestNotificationPermission();
 
         // Handle foreground messages
-        onMessageListener().then((payload) => {
+        onMessageListener((payload) => {
           console.log('Foreground message:', payload);
           // Show notification if needed
           new Notification(payload.notification.title, {
