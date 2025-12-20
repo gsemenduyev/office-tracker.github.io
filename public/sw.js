@@ -1,4 +1,4 @@
-const CACHE_NAME = 'office-tracker-cache-v5';
+const CACHE_NAME = 'office-tracker-cache-v6';
 const OFFLINE_URLS = ['/', '/index.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
