@@ -153,6 +153,13 @@ export default function App() {
 
   // Handlers
   function setStatus(iso, status) {
+    const currentStatus = state.days[iso]?.status;
+    if (currentStatus && currentStatus !== status) {
+      if (!window.confirm("Are you sure you want to update the existing status?")) {
+        return;
+      }
+    }
+
     setState((prev) => {
       const existing = prev.days[iso] || { dateISO: iso, status: undefined, notes: "" };
       const updated = { ...existing, status };
