@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { db, auth, googleProvider } from './firebase.js';
 import { collection, addDoc, query, where, getDocs, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import pkg from '../package.json';
 
 /**
  * Office Attendance Tracker (React + Vite)
@@ -224,9 +225,13 @@ export default function App() {
 
     setState((prev) => {
       const existing = prev.days[iso] || { dateISO: iso, status: undefined, notes: "" };
-      const updated = { ...existing, status };
+      // Use null instead of undefined so Firestore preserves the key (syncs "cleared" state)
+      const updated = { ...existing, status: status === undefined ? null : status };
+      
+      // If clearing, also clear notes to match previous behavior
+      if (status === undefined) updated.notes = "";
+
       const days = { ...prev.days, [iso]: updated };
-      if (!status) delete days[iso]; // clean up when cleared
       return { ...prev, days };
     });
   }
@@ -542,6 +547,10 @@ export default function App() {
         </div>
       </section>
 
+      <footer className="footer">
+        v{pkg.version}
+      </footer>
+
       {/* Styles */}
       <style>{`
         :root {
@@ -603,6 +612,7 @@ export default function App() {
         .status-row button.warning { border-color: var(--red); color: #fecaca; }
         .status-row button.pto-btn { border-color: var(--purple); color: #e9d5ff; }
         .notes textarea { width: 100%; margin-top: 6px; padding: 8px; background: #0b0f1a; color: var(--text); border: 1px solid var(--border); border-radius: 6px; resize: vertical; }
+        .footer { margin-top: 24px; text-align: center; color: var(--muted); font-size: 0.8rem; opacity: 0.7; }
         @media (max-width: 720px) {
           .selected-row { grid-template-columns: 1fr; }
           tbody td.day { height: 64px; }

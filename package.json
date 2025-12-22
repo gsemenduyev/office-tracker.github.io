@@ -1,7 +1,7 @@
 {
   "name": "office-tracker",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "build-preview": "vite build && vite preview",
-    "netlify-deploy": "vite build && netlify deploy --prod --dir=dist"
+    "netlify-deploy": "set NODE_TLS_REJECT_UNAUTHORIZED=0&& vite build && netlify deploy --prod --dir=dist"
   },
   "dependencies": {
     "firebase": "^12.7.0",
