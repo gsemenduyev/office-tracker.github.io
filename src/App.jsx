@@ -472,8 +472,8 @@ export default function App() {
           --border: #1f2937;     /* gray-800 */
         }
         * { box-sizing: border-box; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-        .container { max-width: 980px; margin: 24px auto; padding: 16px; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+        .container { max-width: 980px; margin: auto; padding: 16px; width: 100%; }
         .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
         .actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
         .notifications { padding: 8px 12px; background: var(--card); color: var(--text); border: 1px solid var(--accent); border-radius: 6px; cursor: pointer; }
