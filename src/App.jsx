@@ -1,7 +1,7 @@
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { db, auth, googleProvider } from './firebase.js';
-import { collection, addDoc, query, where, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 /**
@@ -93,6 +93,7 @@ export default function App() {
   const [selectedISO, setSelectedISO] = useState(toISO(new Date()));
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [user, setUser] = useState(null);
+  const isRemoteUpdate = useRef(false); // Track if update came from Cloud
   const selectedDate = fromISO(selectedISO);
 
   useEffect(() => {
@@ -100,6 +101,12 @@ export default function App() {
 
     // If user is logged in, sync to Firestore
     if (user) {
+      // If this change came from the cloud (via onSnapshot), don't save it back
+      if (isRemoteUpdate.current) {
+        isRemoteUpdate.current = false;
+        return;
+      }
+
       const saveToCloud = async () => {
         try {
           // Save user data to 'users/{uid}' document
@@ -123,15 +130,28 @@ export default function App() {
 
   // Listen for Auth changes (Sign In / Sign Out)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeSnapshot = () => {};
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      
+      // Clean up previous listener if exists
+      unsubscribeSnapshot();
+      unsubscribeSnapshot = () => {};
+
       if (currentUser) {
-        // Load data from Cloud on login
-        try {
-          const docRef = doc(db, "users", currentUser.uid);
-          const docSnap = await getDoc(docRef);
+        // Listen for real-time updates from Cloud
+        const docRef = doc(db, "users", currentUser.uid);
+        unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
           if (docSnap.exists()) {
+            // Ignore local writes (latency compensation) to prevent loops
+            if (docSnap.metadata.hasPendingWrites) return;
+
             const cloudData = docSnap.data();
+            
+            // Flag that this update is from remote, so we don't save it back
+            isRemoteUpdate.current = true;
+
             // Merge cloud data into local state
             setState((prev) => ({
               ...prev,
@@ -139,12 +159,13 @@ export default function App() {
               days: { ...prev.days, ...cloudData.days }
             }));
           }
-        } catch (error) {
-          console.error("Error loading cloud data:", error);
-        }
+        });
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeSnapshot();
+    };
   }, []);
 
   const monthStart = startOfMonth(viewDate);
