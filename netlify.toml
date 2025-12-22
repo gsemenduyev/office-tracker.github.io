@@ -5,8 +5,8 @@
 
 # Scheduled functions
 [functions."send-daily-reminder"]
-  # Schedule is in UTC (0 16 * * * = 4:00 PM UTC)
-  schedule = "0 16 * * *"
+  # Schedule is in UTC (0 16 * * 1-5 = 4:00 PM UTC Mon-Fri)
+  schedule = "0 16 * * 1-5"
 
 
 [[redirects]]

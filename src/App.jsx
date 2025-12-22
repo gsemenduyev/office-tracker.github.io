@@ -1,7 +1,8 @@
 
 import { useEffect, useMemo, useState } from "react";
-import { db } from './firebase.js';
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { db, auth, googleProvider } from './firebase.js';
+import { collection, addDoc, query, where, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 /**
  * Office Attendance Tracker (React + Vite)
@@ -91,11 +92,25 @@ export default function App() {
   const [viewDate, setViewDate] = useState(new Date()); // month being viewed
   const [selectedISO, setSelectedISO] = useState(toISO(new Date()));
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [user, setUser] = useState(null);
   const selectedDate = fromISO(selectedISO);
 
   useEffect(() => {
     saveState(state);
-  }, [state]);
+
+    // If user is logged in, sync to Firestore
+    if (user) {
+      const saveToCloud = async () => {
+        try {
+          // Save user data to 'users/{uid}' document
+          await setDoc(doc(db, "users", user.uid), state, { merge: true });
+        } catch (error) {
+          console.error("Error saving to cloud:", error);
+        }
+      };
+      saveToCloud();
+    }
+  }, [state, user]);
 
   useEffect(() => {
     // Check initial subscription status
@@ -104,6 +119,32 @@ export default function App() {
         reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub));
       });
     }
+  }, []);
+
+  // Listen for Auth changes (Sign In / Sign Out)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Load data from Cloud on login
+        try {
+          const docRef = doc(db, "users", currentUser.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const cloudData = docSnap.data();
+            // Merge cloud data into local state
+            setState((prev) => ({
+              ...prev,
+              targetPerQuarter: cloudData.targetPerQuarter || prev.targetPerQuarter,
+              days: { ...prev.days, ...cloudData.days }
+            }));
+          }
+        } catch (error) {
+          console.error("Error loading cloud data:", error);
+        }
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   const monthStart = startOfMonth(viewDate);
@@ -153,6 +194,13 @@ export default function App() {
 
   // Handlers
   function setStatus(iso, status) {
+    const currentStatus = state.days[iso]?.status;
+    if (currentStatus && currentStatus !== status) {
+      if (!window.confirm("Are you sure you want to update the existing status?")) {
+        return;
+      }
+    }
+
     setState((prev) => {
       const existing = prev.days[iso] || { dateISO: iso, status: undefined, notes: "" };
       const updated = { ...existing, status };
@@ -244,6 +292,19 @@ export default function App() {
     }
   }
 
+  async function handleLogin() {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Login failed:", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        alert(`Login failed: Domain not authorized.\n\nPlease add this domain to Firebase Console -> Authentication -> Settings -> Authorized domains:\n\n${window.location.hostname}`);
+      } else if (error.code !== 'auth/popup-closed-by-user') {
+        alert("Login failed: " + error.message);
+      }
+    }
+  }
+
   // UI helpers
   function tileStatus(date) {
     if (!date) return undefined;
@@ -264,6 +325,7 @@ export default function App() {
           "day",
           status === "in" ? "in" : "",
           status === "out" ? "out" : "",
+          status === "pto" ? "pto" : "",
           isToday ? "today" : "",
           isSelected ? "selected" : "",
         ].join(" ")}
@@ -286,7 +348,7 @@ export default function App() {
       .filter((d) => d.dateISO >= qStartISO && d.dateISO <= qEndISO && d.status)
       .sort((a, b) => (a.dateISO < b.dateISO ? -1 : a.dateISO > b.dateISO ? 1 : 0))
       .forEach((d) => {
-        rows.push([d.dateISO, d.status === "in" ? "In Office" : "Not in Office", (d.notes || "").replace(/\r?\n/g, " ")]);
+        rows.push([d.dateISO, d.status === "in" ? "In Office" : d.status === "pto" ? "PTO" : "Not in Office", (d.notes || "").replace(/\r?\n/g, " ")]);
       });
 
     const csv = rows
@@ -337,6 +399,16 @@ export default function App() {
             <button className="notifications" onClick={subscribeToNotifications}>
               {isSubscribed ? 'Subscribed ✅' : 'Subscribe to Reminders'}
             </button>
+            
+            {/* Auth Buttons */}
+            {user ? (
+              <div className="user-info">
+                <span className="user-email">{user.email}</span>
+                <button className="auth-btn" onClick={() => signOut(auth)}>Sign Out</button>
+              </div>
+            ) : (
+              <button className="auth-btn" onClick={handleLogin}>Sign In to Sync</button>
+            )}
           </div>
         </div>
       </header>
@@ -426,6 +498,12 @@ export default function App() {
               >
                 Not in Office
               </button>
+              <button
+                className={selectedStatus === "pto" ? "pto-btn" : ""}
+                onClick={() => setStatus(selectedISO, "pto")}
+              >
+                PTO
+              </button>
               <button onClick={() => setStatus(selectedISO, undefined)}>Clear</button>
             </div>
           </div>
@@ -454,14 +532,18 @@ export default function App() {
           --green: #22c55e;      /* green-500 */
           --red: #ef4444;        /* red-500 */
           --yellow: #f59e0b;     /* amber-500 */
+          --purple: #a855f7;     /* purple-500 */
           --border: #1f2937;     /* gray-800 */
         }
         * { box-sizing: border-box; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-        .container { max-width: 980px; margin: 24px auto; padding: 16px; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+        .container { max-width: 980px; margin: auto; padding: 16px; width: 100%; }
         .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
         .actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
         .notifications { padding: 8px 12px; background: var(--card); color: var(--text); border: 1px solid var(--accent); border-radius: 6px; cursor: pointer; }
+        .auth-btn { padding: 8px 12px; background: var(--card); color: var(--text); border: 1px solid var(--muted); border-radius: 6px; cursor: pointer; margin-left: 8px; }
+        .user-info { display: flex; align-items: center; gap: 8px; }
+        .user-email { font-size: 0.85rem; color: var(--muted); }
         h1 { margin: 0; font-size: 1.5rem; }
         .goal { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .goal input { width: 72px; padding: 6px 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
@@ -487,6 +569,7 @@ export default function App() {
         .date { position: absolute; top: 6px; right: 8px; font-size: 0.9rem; color: var(--muted); }
         .day.in { background: rgba(34, 197, 94, 0.18); outline: 2px solid rgba(34,197,94,0.3); }
         .day.out { background: rgba(239, 68, 68, 0.18); outline: 2px solid rgba(239,68,68,0.3); }
+        .day.pto { background: rgba(168, 85, 247, 0.18); outline: 2px solid rgba(168, 85, 247, 0.3); }
         .day.today { box-shadow: inset 0 0 0 2px var(--accent); }
         .day.selected { outline: 2px solid var(--yellow); }
 
@@ -497,6 +580,7 @@ export default function App() {
         .status-row button { padding: 8px 12px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
         .status-row button.primary { border-color: var(--green); color: #bbf7d0; }
         .status-row button.warning { border-color: var(--red); color: #fecaca; }
+        .status-row button.pto-btn { border-color: var(--purple); color: #e9d5ff; }
         .notes textarea { width: 100%; margin-top: 6px; padding: 8px; background: #0b0f1a; color: var(--text); border: 1px solid var(--border); border-radius: 6px; resize: vertical; }
         @media (max-width: 720px) {
           .selected-row { grid-template-columns: 1fr; }
